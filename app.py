@@ -2,16 +2,15 @@ import random
 import objc
 import rumps
 from AppKit import (
-    NSObject, NSPopover, NSViewController, NSView,
+    NSObject, NSViewController, NSView,
     NSTextField, NSButton, NSColor, NSFont, NSBezierPath,
-    NSMakeRect, NSPopoverBehaviorTransient,
+    NSMakeRect,
     NSTextAlignmentLeft, NSForegroundColorAttributeName, NSFontAttributeName,
     NSPopUpMenuWindowLevel,
+    NSPanel, NSBackingStoreBuffered,
+    NSEvent,
 )
-from Foundation import NSMakeSize, NSAttributedString
-
-# NSRectEdge.maxY — popover opens downward from the menu bar
-NSMaxYEdge = 3
+from Foundation import NSAttributedString
 
 SNIPPETS = [
     {
@@ -4842,10 +4841,20 @@ class CoffeeBuddyApp(rumps.App):
         self._vc.setup(self)
         self._vc.update(SNIPPETS[self._current])
 
-        self._popover = NSPopover.alloc().init()
-        self._popover.setContentViewController_(self._vc)
-        self._popover.setBehavior_(NSPopoverBehaviorTransient)
-        self._popover.setContentSize_(NSMakeSize(300, 190))
+        # Non-activating panel — floats above full-screen apps without stealing focus
+        # NSWindowStyleMaskNonactivatingPanel = 1 << 7
+        # Collection: CanJoinAllSpaces(1) | Transient(8) | FullScreenAuxiliary(256)
+        W, H = 300, 190
+        self._popup = NSPanel.alloc().initWithContentRect_styleMask_backing_defer_(
+            NSMakeRect(0, 0, W, H), 1 << 7, NSBackingStoreBuffered, False
+        )
+        self._popup.setLevel_(NSPopUpMenuWindowLevel)
+        self._popup.setCollectionBehavior_(1 | 8 | 256)
+        self._popup.setHasShadow_(True)
+        self._popup.setOpaque_(False)
+        self._popup.setBackgroundColor_(NSColor.clearColor())
+        self._popup.setContentView_(self._vc.view())
+        self._event_monitor = None
 
         # nsstatusitem is created during run() → defer click-handler wiring
         self._click_handler = ClickHandler.alloc().init()
@@ -4861,17 +4870,48 @@ class CoffeeBuddyApp(rumps.App):
         btn.setAction_("onClicked:")
 
     def toggle_popover(self):
-        btn = self._nsapp.nsstatusitem.button()
-        if self._popover.isShown():
-            self._popover.performClose_(btn)
+        if self._popup.isVisible():
+            self._hide_popup()
         else:
-            self._popover.showRelativeToRect_ofView_preferredEdge_(
-                btn.bounds(), btn, NSMaxYEdge
-            )
-            win = self._vc.view().window()
-            if win:
-                win.setLevel_(NSPopUpMenuWindowLevel)
-                win.orderFrontRegardless()
+            self._show_popup()
+
+    @objc.python_method
+    def _show_popup(self):
+        btn = self._nsapp.nsstatusitem.button()
+        btn_win = btn.window()
+        if btn_win is None:
+            return
+        btn_rect = btn_win.convertRectToScreen_(
+            btn.convertRect_toView_(btn.bounds(), None)
+        )
+        W, H = 300, 190
+        x = btn_rect.origin.x + btn_rect.size.width - W
+        y = btn_rect.origin.y - H
+        self._popup.setFrameOrigin_((x, y))
+        self._popup.orderFrontRegardless()
+
+        def on_outside_click(event):
+            loc = NSEvent.mouseLocation()
+            b = self._nsapp.nsstatusitem.button()
+            bw = b.window()
+            if bw:
+                br = bw.convertRectToScreen_(b.convertRect_toView_(b.bounds(), None))
+                if (br.origin.x <= loc.x <= br.origin.x + br.size.width and
+                        br.origin.y <= loc.y <= br.origin.y + br.size.height):
+                    return  # click on status button — let toggle_popover handle it
+            self._hide_popup()
+
+        self._event_monitor = NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+            (1 << 1) | (1 << 3),  # LeftMouseDown | RightMouseDown
+            on_outside_click,
+        )
+
+    @objc.python_method
+    def _hide_popup(self):
+        self._popup.orderOut_(None)
+        if self._event_monitor:
+            NSEvent.removeMonitor_(self._event_monitor)
+            self._event_monitor = None
 
     def advance(self):
         if not self._deck:
