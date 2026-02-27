@@ -1,5 +1,16 @@
 import random
+import objc
 import rumps
+from AppKit import (
+    NSObject, NSPopover, NSViewController, NSView,
+    NSTextField, NSButton, NSColor, NSFont,
+    NSMakeRect, NSPopoverBehaviorTransient,
+    NSTextAlignmentLeft, NSBezelStyleRounded,
+)
+from Foundation import NSMakeSize
+
+# NSRectEdge.maxY — popover opens downward from the menu bar
+NSMaxYEdge = 3
 
 SNIPPETS = [
     # ── Brewing · Espresso ──────────────────────────────────────────────────
@@ -493,59 +504,148 @@ SNIPPETS = [
 ]
 
 
+# ── Popover content view controller ──────────────────────────────────────────
+
+class SnippetViewController(NSViewController):
+
+    @objc.python_method
+    def setup(self, app_ref):
+        self._app = app_ref
+        self._snippet = None
+
+    def loadView(self):
+        W, H = 300, 190
+
+        view = NSView.alloc().initWithFrame_(NSMakeRect(0, 0, W, H))
+        view.setWantsLayer_(True)
+        # warm parchment tint inside the popover
+        view.layer().setBackgroundColor_(
+            NSColor.colorWithSRGBRed_green_blue_alpha_(0.99, 0.96, 0.90, 1.0).CGColor()
+        )
+
+        # ── category label (top, muted brown) ────────────────────────────────
+        self._cat = NSTextField.alloc().initWithFrame_(NSMakeRect(14, H - 30, W - 28, 18))
+        self._cat.setEditable_(False)
+        self._cat.setBezeled_(False)
+        self._cat.setDrawsBackground_(False)
+        self._cat.setFont_(NSFont.systemFontOfSize_(10))
+        self._cat.setTextColor_(
+            NSColor.colorWithSRGBRed_green_blue_alpha_(0.55, 0.30, 0.08, 1.0)
+        )
+
+        # ── snippet text (wrapping) ───────────────────────────────────────────
+        self._text = NSTextField.alloc().initWithFrame_(NSMakeRect(14, 50, W - 28, H - 88))
+        self._text.setEditable_(False)
+        self._text.setBezeled_(False)
+        self._text.setDrawsBackground_(False)
+        self._text.setFont_(NSFont.systemFontOfSize_(12))
+        self._text.setTextColor_(
+            NSColor.colorWithSRGBRed_green_blue_alpha_(0.15, 0.07, 0.02, 1.0)
+        )
+        self._text.setAlignment_(NSTextAlignmentLeft)
+        self._text.cell().setWraps_(True)
+
+        # ── buttons ───────────────────────────────────────────────────────────
+        next_btn = NSButton.alloc().initWithFrame_(NSMakeRect(W - 96, 12, 82, 28))
+        next_btn.setTitle_("Next ☕")
+        next_btn.setBezelStyle_(NSBezelStyleRounded)
+        next_btn.setTarget_(self)
+        next_btn.setAction_("onNext:")
+
+        quit_btn = NSButton.alloc().initWithFrame_(NSMakeRect(14, 12, 60, 28))
+        quit_btn.setTitle_("Quit")
+        quit_btn.setBezelStyle_(NSBezelStyleRounded)
+        quit_btn.setTarget_(self)
+        quit_btn.setAction_("onQuit:")
+
+        for sub in (self._cat, self._text, next_btn, quit_btn):
+            view.addSubview_(sub)
+
+        self.setView_(view)
+
+        if self._snippet is not None:
+            self._render()
+
+    @objc.python_method
+    def _render(self):
+        self._cat.setStringValue_(self._snippet["category"])
+        self._text.setStringValue_(self._snippet["text"])
+
+    @objc.python_method
+    def update(self, snippet):
+        self._snippet = snippet
+        if self.isViewLoaded():
+            self._render()
+
+    def onNext_(self, sender):
+        self._app.advance()
+
+    def onQuit_(self, sender):
+        rumps.quit_application()
+
+
+# ── Thin NSObject to receive the status-bar button click ──────────────────────
+
+class ClickHandler(NSObject):
+
+    @objc.python_method
+    def setup(self, app_ref):
+        self._app = app_ref
+
+    def onClicked_(self, sender):
+        self._app.toggle_popover()
+
+
+# ── Main app ──────────────────────────────────────────────────────────────────
+
 class CoffeeBuddyApp(rumps.App):
+
     def __init__(self):
         super().__init__("☕", quit_button=None)
 
-        self._deck = []
-        self._shuffle_deck()
-
-        self._current = self._draw()
-
-        self.snippet_item = rumps.MenuItem("")
-        self.category_item = rumps.MenuItem("")
-        self.next_item = rumps.MenuItem("Next →", callback=self.next_snippet)
-        self.quit_item = rumps.MenuItem("Quit", callback=rumps.quit_application)
-
-        self.menu = [
-            self.category_item,
-            self.snippet_item,
-            None,
-            self.next_item,
-            None,
-            self.quit_item,
-        ]
-
-        self._render()
-
-    # ── internals ────────────────────────────────────────────────────────────
-
-    def _shuffle_deck(self):
+        # snippet deck
         self._deck = list(range(len(SNIPPETS)))
         random.shuffle(self._deck)
+        self._current = self._deck.pop()
 
-    def _draw(self):
+        # view controller + popover
+        self._vc = SnippetViewController.alloc().init()
+        self._vc.setup(self)
+        self._vc.update(SNIPPETS[self._current])
+
+        self._popover = NSPopover.alloc().init()
+        self._popover.setContentViewController_(self._vc)
+        self._popover.setBehavior_(NSPopoverBehaviorTransient)
+        self._popover.setContentSize_(NSMakeSize(300, 190))
+
+        # nsstatusitem is created during run() → defer click-handler wiring
+        self._click_handler = ClickHandler.alloc().init()
+        self._click_handler.setup(self)
+        rumps.events.before_start.register(self._wire_status_item)
+
+    def _wire_status_item(self):
+        """Called by before_start, after initializeStatusBar() creates nsstatusitem."""
+        si = self._nsapp.nsstatusitem
+        si.setMenu_(None)
+        btn = si.button()
+        btn.setTarget_(self._click_handler)
+        btn.setAction_("onClicked:")
+
+    def toggle_popover(self):
+        btn = self._nsapp.nsstatusitem.button()
+        if self._popover.isShown():
+            self._popover.performClose_(btn)
+        else:
+            self._popover.showRelativeToRect_ofView_preferredEdge_(
+                btn.bounds(), btn, NSMaxYEdge
+            )
+
+    def advance(self):
         if not self._deck:
-            self._shuffle_deck()
-        return self._deck.pop()
-
-    def _render(self):
-        snippet = SNIPPETS[self._current]
-        self.category_item.title = f"  {snippet['category']}"
-        self.snippet_item.title = self._wrap(snippet["text"], width=46)
-
-    @staticmethod
-    def _wrap(text: str, width: int = 46) -> str:
-        """Wrap text to ~width characters per line, preserving existing newlines."""
-        import textwrap
-        wrapped = textwrap.fill(text, width=width)
-        return wrapped
-
-    # ── callbacks ────────────────────────────────────────────────────────────
-
-    def next_snippet(self, _):
-        self._current = self._draw()
-        self._render()
+            self._deck = list(range(len(SNIPPETS)))
+            random.shuffle(self._deck)
+        self._current = self._deck.pop()
+        self._vc.update(SNIPPETS[self._current])
 
 
 if __name__ == "__main__":
