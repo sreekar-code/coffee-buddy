@@ -555,13 +555,7 @@ class SnippetViewController(NSViewController):
         next_btn.setTarget_(self)
         next_btn.setAction_("onNext:")
 
-        quit_btn = NSButton.alloc().initWithFrame_(NSMakeRect(14, 12, 60, 28))
-        quit_btn.setTitle_("Quit")
-        quit_btn.setBezelStyle_(NSBezelStyleRounded)
-        quit_btn.setTarget_(self)
-        quit_btn.setAction_("onQuit:")
-
-        for sub in (self._cat, self._text, next_btn, quit_btn):
+        for sub in (self._cat, self._text, next_btn):
             view.addSubview_(sub)
 
         self.setView_(view)
@@ -582,9 +576,6 @@ class SnippetViewController(NSViewController):
 
     def onNext_(self, sender):
         self._app.advance()
-
-    def onQuit_(self, sender):
-        rumps.quit_application()
 
 
 # ── Thin NSObject to receive the status-bar button click ──────────────────────
