@@ -3,7 +3,7 @@ import objc
 import rumps
 from AppKit import (
     NSObject, NSPopover, NSViewController, NSView,
-    NSTextField, NSButton, NSColor, NSFont,
+    NSTextField, NSButton, NSColor, NSFont, NSBezierPath,
     NSMakeRect, NSPopoverBehaviorTransient,
     NSTextAlignmentLeft, NSBezelStyleRounded,
 )
@@ -504,6 +504,14 @@ SNIPPETS = [
 ]
 
 
+# ── Custom view with a warm parchment background ─────────────────────────────
+
+class ParchmentView(NSView):
+    def drawRect_(self, rect):
+        NSColor.colorWithSRGBRed_green_blue_alpha_(0.99, 0.96, 0.90, 1.0).set()
+        NSBezierPath.fillRect_(self.bounds())
+
+
 # ── Popover content view controller ──────────────────────────────────────────
 
 class SnippetViewController(NSViewController):
@@ -516,12 +524,7 @@ class SnippetViewController(NSViewController):
     def loadView(self):
         W, H = 300, 190
 
-        view = NSView.alloc().initWithFrame_(NSMakeRect(0, 0, W, H))
-        view.setWantsLayer_(True)
-        # warm parchment tint inside the popover
-        view.layer().setBackgroundColor_(
-            NSColor.colorWithSRGBRed_green_blue_alpha_(0.99, 0.96, 0.90, 1.0).CGColor()
-        )
+        view = ParchmentView.alloc().initWithFrame_(NSMakeRect(0, 0, W, H))
 
         # ── category label (top, muted brown) ────────────────────────────────
         self._cat = NSTextField.alloc().initWithFrame_(NSMakeRect(14, H - 30, W - 28, 18))
