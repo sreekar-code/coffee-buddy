@@ -6,6 +6,7 @@ from AppKit import (
     NSTextField, NSButton, NSColor, NSFont, NSBezierPath,
     NSMakeRect, NSPopoverBehaviorTransient,
     NSTextAlignmentLeft, NSForegroundColorAttributeName, NSFontAttributeName,
+    NSPopUpMenuWindowLevel,
 )
 from Foundation import NSMakeSize, NSAttributedString
 
@@ -4777,13 +4778,13 @@ class SnippetViewController(NSViewController):
         # ── "One more cup" button — borderless, styled to match the theme ────
         brown = NSColor.colorWithSRGBRed_green_blue_alpha_(0.55, 0.30, 0.08, 1.0)
         label = NSAttributedString.alloc().initWithString_attributes_(
-            "One more cup",
+            "One more cup ☕️",
             {
                 NSForegroundColorAttributeName: brown,
                 NSFontAttributeName: NSFont.systemFontOfSize_(12),
             },
         )
-        next_btn = NSButton.alloc().initWithFrame_(NSMakeRect(W - 114, 10, 100, 22))
+        next_btn = NSButton.alloc().initWithFrame_(NSMakeRect(W - 136, 10, 122, 22))
         next_btn.setAttributedTitle_(label)
         next_btn.setBordered_(False)
         next_btn.setTarget_(self)
@@ -4867,6 +4868,10 @@ class CoffeeBuddyApp(rumps.App):
             self._popover.showRelativeToRect_ofView_preferredEdge_(
                 btn.bounds(), btn, NSMaxYEdge
             )
+            win = self._vc.view().window()
+            if win:
+                win.setLevel_(NSPopUpMenuWindowLevel)
+                win.orderFrontRegardless()
 
     def advance(self):
         if not self._deck:
