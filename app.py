@@ -5,9 +5,9 @@ from AppKit import (
     NSObject, NSPopover, NSViewController, NSView,
     NSTextField, NSButton, NSColor, NSFont, NSBezierPath,
     NSMakeRect, NSPopoverBehaviorTransient,
-    NSTextAlignmentLeft, NSBezelStyleRounded,
+    NSTextAlignmentLeft, NSForegroundColorAttributeName, NSFontAttributeName,
 )
-from Foundation import NSMakeSize
+from Foundation import NSMakeSize, NSAttributedString
 
 # NSRectEdge.maxY — popover opens downward from the menu bar
 NSMaxYEdge = 3
@@ -548,10 +548,18 @@ class SnippetViewController(NSViewController):
         self._text.setAlignment_(NSTextAlignmentLeft)
         self._text.cell().setWraps_(True)
 
-        # ── buttons ───────────────────────────────────────────────────────────
-        next_btn = NSButton.alloc().initWithFrame_(NSMakeRect(W - 96, 12, 82, 28))
-        next_btn.setTitle_("Next ☕")
-        next_btn.setBezelStyle_(NSBezelStyleRounded)
+        # ── "One more cup" button — borderless, styled to match the theme ────
+        brown = NSColor.colorWithSRGBRed_green_blue_alpha_(0.55, 0.30, 0.08, 1.0)
+        label = NSAttributedString.alloc().initWithString_attributes_(
+            "One more cup",
+            {
+                NSForegroundColorAttributeName: brown,
+                NSFontAttributeName: NSFont.systemFontOfSize_(12),
+            },
+        )
+        next_btn = NSButton.alloc().initWithFrame_(NSMakeRect(W - 114, 10, 100, 22))
+        next_btn.setAttributedTitle_(label)
+        next_btn.setBordered_(False)
         next_btn.setTarget_(self)
         next_btn.setAction_("onNext:")
 
