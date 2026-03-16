@@ -5,10 +5,10 @@ A lightweight macOS menubar app that teaches you specialty coffee in short, frie
 ## What it does
 
 - Sits in your menubar as a ☕ icon
-- Click it to see a coffee fact or tip (category + text) in a floating popup
-- Click **One more cup ☕️** to cycle through all 502 snippets in random order — reshuffles when exhausted
+- Click it to see a coffee tasting tip (category + text) in a floating popup
+- Click **One more cup ☕️** to cycle through all 100 snippets in random order — reshuffles when exhausted
 - Popup floats above all windows, including full-screen apps — no need to minimize anything
-- Covers: espresso, pour over, French press, AeroPress, cold brew, tasting, roasting, origins, processing, grind size, water, beginner tips, and fun facts
+- Covers: acidity, body, sweetness, aftertaste, aroma, balance, bitterness, flavor notes, mouthfeel, comparing coffees, and how to taste
 
 ## Requirements
 
@@ -46,7 +46,7 @@ python3 app.py
 
 ```
 coffee-buddy/
-├── app.py           # Entire app (~4900 lines, mostly SNIPPETS data)
+├── app.py           # Entire app (~1100 lines, includes 100 SNIPPETS)
 ├── make_app.sh      # One-time installer: creates ~/Applications/CoffeeBuddy.app
 ├── requirements.txt # Python dependencies
 └── README.md        # This file

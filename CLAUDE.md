@@ -2,7 +2,7 @@
 
 ## Overview
 
-Single-file macOS menubar app (`app.py`, ~4900 lines). Shows specialty coffee education snippets via a floating popup. Built with Python + rumps + PyObjC.
+Single-file macOS menubar app (`app.py`, ~1100 lines). Shows coffee tasting education snippets via a floating popup. Built with Python + rumps + PyObjC.
 
 ## Running the app
 
@@ -15,7 +15,9 @@ Or from Spotlight after running `bash make_app.sh` once.
 ## Key architecture
 
 ### Data
-- `SNIPPETS` — list of 502 dicts `{category, text}`, lines 15–4731
+- `SNIPPETS` — list of 100 dicts `{category, text}`, lines 15–~680
+- All snippets are coffee tasting focused; each fits within the popup's 6-line text area (no content cut off)
+- 11 subcategories: Acidity, Body, Sweetness, Aftertaste, Aroma, Balance, Bitterness, Flavor Notes, Mouthfeel, Comparing Coffees, How to Taste
 
 ### Classes (all in app.py)
 | Class | Purpose |
@@ -34,7 +36,7 @@ Or from Spotlight after running `bash make_app.sh` once.
 - **Do NOT use NSPopover** — it manages its own window level internally and cannot reliably appear above full-screen apps
 
 ### Snippet deck
-Shuffled list of all indices; pops one at a time; reshuffles when exhausted. Ensures all 502 snippets are seen before any repeats.
+Shuffled list of all indices; pops one at a time; reshuffles when exhausted. Ensures all 100 snippets are seen before any repeats.
 
 ### Deferred wiring
 `NSStatusItem` doesn't exist until `rumps.App.run()` is called. The click handler is attached via `rumps.events.before_start`.
